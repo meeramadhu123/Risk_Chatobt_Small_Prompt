@@ -211,7 +211,10 @@ else:
             st.chat_message("assistant").write( "Sorry, I couldn't answer your question.")
             st.session_state.risk_msgs.append({"role":"assistant","content":"Sorry, I couldn't answer your question."})
         else:
-
+            # Assistant response
+            st.chat_message("assistant").write(conv)
+            #st.dataframe(result)
+            st.session_state.risk_msgs.append({"role":"assistant","content":conv})
         
             # ---- Simplified Feedback ----           
             # 1. Store the last QA in session_state so it's accessible inside the form
