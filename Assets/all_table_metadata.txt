@@ -507,7 +507,7 @@ Columns:
     sector:  (Sector) Industry sector to which the risk is related (e.g., Banking, Retail, Healthcare).
     risk_department_level3:  (Department Level 3) Tertiary classification of the responsible department.
     risk_department_level4:  (Department Level 4) Quaternary classification of the responsible department.
-    risk_category1:  (Category1) Category or classification of risk (e.g., Financial, Operational, Compliance).
+    risk_category1:  (Category1) Category or classification of risk,please use LIKE for filtering this column (e.g., Financial, Operational, Compliance).
     risk_business_strategy:  (Strategy) Business strategy or objectives that the risk may impact.
     mega_process_v2:  (Mega Process V2) High-level business processes affected by the risk.
     major_process_v2:  (Major Process V2) Specific sub-processes that are impacted by the risk.
