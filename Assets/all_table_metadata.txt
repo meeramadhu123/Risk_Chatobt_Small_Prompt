@@ -484,7 +484,6 @@ Columns:
     decision_maker_v1:  (Decision Maker V1) Person or authority responsible for key decisions related to risk management.
     scoring_model:  (Scoring Model) Methodology or framework used for risk assessment and scoring (e.g., qualitative, quantitative, hybrid).
     approval_status:  (Approval Status) Status of risk approval (e.g., Pending, Approved, Rejected).
-    risk_type:  (Risk Type) High-level classification of the risk based on industry standards.
     inherent_likelihood:  (Inherent Likelihood) Probability of the risk occurring before any mitigation measures are applied.
     residual_likelihood:  (Residual Likelihood) Probability of the risk occurring after mitigation measures have been implemented.
     residual_impact:  (Residual Impact) Impact severity if the risk materializes after applying controls.
