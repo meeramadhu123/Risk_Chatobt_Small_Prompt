@@ -23,6 +23,8 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import io
+import json
+
 
 # Audit module imports
 from langchain_nvidia_ai_endpoints import ChatNVIDIA
@@ -66,7 +68,11 @@ db_config = {
 
 
 scope = ["https://spreadsheets.google.com/feeds",'https://www.googleapis.com/auth/spreadsheets',"https://www.googleapis.com/auth/drive.file","https://www.googleapis.com/auth/drive"]
-creds = ServiceAccountCredentials.from_json_keyfile_name(r"My_Gsheet.json",scope)
+# Convert st.secrets to a JSON-style dict
+creds_dict = dict(st.secrets["gsheets"])
+# Convert to actual JSON string and parse it
+creds_json = json.loads(json.dumps(creds_dict))
+creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_json,scope)
 client = gspread.authorize(creds)
 sheet = client.open("Streamlit_Chatbot_Logs").sheet1  
 
