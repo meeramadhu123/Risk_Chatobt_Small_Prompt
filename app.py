@@ -1,4 +1,3 @@
-
 import streamlit as st
 import pandas as pd
 import os
@@ -20,6 +19,11 @@ from langchain.callbacks.base import BaseCallbackHandler
 from langchain.chains import ConversationalRetrievalChain
 from langchain.vectorstores import DocArrayInMemorySearch
 from langchain.text_splitter import RecursiveCharacterTextSplitter
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
+import io
+import json
+
 
 # Audit module imports
 from langchain_nvidia_ai_endpoints import ChatNVIDIA
@@ -62,34 +66,23 @@ db_config = {
 }
 
 
+scope = ["https://spreadsheets.google.com/feeds",'https://www.googleapis.com/auth/spreadsheets',"https://www.googleapis.com/auth/drive.file","https://www.googleapis.com/auth/drive"]
+# Convert st.secrets to a JSON-style dict
+creds_dict = dict(st.secrets["gsheets"])
+# Convert to actual JSON string and parse it
+creds_json = json.loads(json.dumps(creds_dict))
+creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_json,scope)
+client = gspread.authorize(creds)
+sheet = client.open("Streamlit_Chatbot_Logs").sheet1  
+
+headers = ["session_id","question_id","timestamp","question","sql_query",
+"conversational_answer","rating", "comments"]
+
 
 st.set_page_config(initial_sidebar_state='collapsed')
 st.image(logo, width=150)
 st.title("Welcome to Aurex AI Chatbot")
 policy_flag = st.toggle("DocAI")
-
-
-
-
-
-
-
-class PrintRetrievalHandler(BaseCallbackHandler):
-    def __init__(self, container):
-        self.status = container.status("**Context Retrieval**")
-
-    def on_retriever_start(self, serialized: dict, query: str, **kwargs):
-        self.status.write(f"**Question:** {query}")
-        self.status.update(label=f"**Context Retrieval:** {query}")
-
-    def on_retriever_end(self, documents, **kwargs):
-        for idx, doc in enumerate(documents):
-            source = os.path.basename(doc.metadata["source"])
-            self.status.write(f"**Document {idx} from {source}**")
-            self.status.markdown(doc.page_content)
-        self.status.update(state="complete")
-
-
 
 # Chart file hash (not used directly here)
 def checkfilechange(file_path):
@@ -107,11 +100,32 @@ def log_csv(entry):
             writer.writeheader()
         writer.writerow(entry)
 
+
+def log_to_google_sheets(entry):
+    """
+    Appends a dictionary entry as a new row in the Google Sheet.
+    """
+    # Map the entry to the headers
+    row = [
+        entry.get("session_id", ""),
+        entry.get("question_id", ""),
+        entry.get("timestamp", ""),
+        entry.get("question", ""),
+        entry.get("sql_query", ""),
+        entry.get("conversational_answer", ""),
+        entry.get("rating", ""),
+        entry.get("comments", "")
+    ]
+    
+    # Append the row to the Google Sheet
+    sheet.append_row(row, value_input_option="USER_ENTERED")
+
+
 # Core processing, without UI
 def process_risk_query(llm, user_question):
     conn, metadata = get_metadata_from_mysql(db_config, descriptions_file=descriptions_file)
     if conn is None or not metadata:
-        return  "Sorry, I was not able to connect to Database", None, ""
+        return None, "Sorry, I was not able to connect to Database"
     vector_store = create_vector_db_from_metadata(metadata)
     docs = retrieve_top_tables(vector_store, user_question, k=10)
     top_names = [d.metadata["table_name"] for d in docs]
@@ -129,7 +143,6 @@ def process_risk_query(llm, user_question):
     conv = analyze_sql_query(user_question, result.to_dict(orient='records'), llm)
     conv = finetune_conv_answer(user_question, conv, llm)
     return (conv, result, sql)
-
 
 # -- Policy Module --
 if policy_flag:
@@ -169,8 +182,7 @@ if policy_flag:
         st.chat_message("user").write(prompt)
         with st.spinner("Generating policy response..."):   
             handler = BaseCallbackHandler()
-            retrieval_handler = PrintRetrievalHandler(st.container())
-            resp = qa_chain.run(prompt, callbacks=[handler, retrieval_handler])
+            resp = qa_chain.run(prompt, callbacks=[handler])
         with st.chat_message("assistant"):
             st.write(resp)
 
@@ -189,20 +201,17 @@ else:
         api_key= NVIDIA_API_KEY,
         temperature=0, num_ctx=50000
     )
-    
     # Display chat history
     for msg in st.session_state.risk_msgs:
         st.chat_message(msg['role']).write(msg['content'])
-        
-     
     # User input at bottom
     if prompt := st.chat_input(placeholder="Ask a question about the Risk Management module"):
         # User message
         st.chat_message("user").write(prompt)
         st.session_state.risk_msgs.append({"role":"user","content":prompt})
         # Process the question
-        #with st.spinner("Generating the answer..."):
-        conv, result, sql = process_risk_query(llm_audit, prompt)
+        with st.spinner("Generating the answer..."):
+            conv, result, sql = process_risk_query(llm_audit, prompt)
         if conv is None:
             st.chat_message("assistant").write( "Sorry, I couldn't answer your question.")
             st.session_state.risk_msgs.append({"role":"assistant","content":"Sorry, I couldn't answer your question."})
@@ -211,26 +220,75 @@ else:
             st.chat_message("assistant").write(conv)
             #st.dataframe(result)
             st.session_state.risk_msgs.append({"role":"assistant","content":conv})
+        
+            # ---- Simplified Feedback ----           
+            # 1. Store the last QA in session_state so it's accessible inside the form
+            st.session_state["last_prompt"] = prompt
+            st.session_state["last_sql"]    = sql
+            st.session_state["last_conv"]   = conv
+            st.session_state["session_id"] = st.session_state.session_id
+            st.session_state["question_id"] =  uuid.uuid4()
+            st.session_state["timestamp"] = datetime.now().isoformat()
 
-            entry = { "session_id":   st.session_state.session_id,
-                      "question_id":  str(uuid.uuid4()),
-                      "timestamp":  datetime.now().isoformat(),
-                       "question":  prompt,
-                       "sql_query": "SQL query: "+ sql,
-                       "conversational_answer": "Ans: "+ conv,
-                    }
-            log_csv(entry)
+            # Callback to handle feedback submission
+            def submit_feedback():
+                entry = {
+                    "session_id":   str(st.session_state["session_id"]),
+                    "question_id":  str(st.session_state["question_id"]),
+                    "timestamp":  str(st.session_state["timestamp"]),
+                    "question": st.session_state.last_prompt,
+                    "sql_query": "SQL query: "+ st.session_state.last_sql,
+                    "conversational_answer": "Ans: "+ st.session_state.last_conv,
+                    "rating": (1+st.session_state.feedback_rating) if st.session_state.feedback_rating else 0,
+                    "comments": st.session_state.feedback_comment
+                }
+                if st.session_state.feedback_rating or st.session_state.feedback_comment:
+                    log_to_google_sheets(entry)
+                    st.success("Feedback recorded. Thank you!")	
+            
+                # Clear stored Q&A (optional)
+                for k in ("last_prompt", "last_sql", "last_conv"):
+                    st.session_state.pop(k, None)
+
+
+
+            with st.form("feedback_form"):
+                st.subheader("Rate this answer and leave optional comments")
+            
+                # Star rating from 1–5
+                rating = st.feedback(options="stars",key="feedback_rating")
+                # Text feedaback
+                comment = st.text_input("Please provide comments for improvement (optional)",key="feedback_comment")
+                submit = st.form_submit_button("Submit Feedback", on_click=submit_feedback)
+
+            if submit == False:
+                entry = { "session_id":   str(st.session_state["session_id"]),
+                          "question_id":  str(st.session_state["question_id"]),
+                          "timestamp":  str(st.session_state["timestamp"]),
+                           "question":  prompt,
+                           "sql_query": "SQL query: "+ sql,
+                           "conversational_answer": "Ans: "+ conv,
+                        }
+                log_to_google_sheets(entry)
    
           
+records = sheet.get_all_records()
+# Convert the records to a pandas DataFrame
+df = pd.DataFrame(records)
+# Convert the DataFrame to CSV format in memory
+csv_buffer = io.StringIO()
+df.to_csv(csv_buffer, index=False)
+csv_data = csv_buffer.getvalue()
+
+
+# Display the download button in the Streamlit sidebar
 st.sidebar.markdown("### 📥 Download Chat Log")
-if os.path.exists("chat_log.csv"):
-    with open("chat_log.csv", "rb") as f:
-        data = f.read()
+if csv_data:
     st.sidebar.download_button(
         label="Download log (CSV)",
-        data=data,
+        data=csv_data,
         file_name="chat_log.csv",
-        mime="text/csv",
+        mime="text/csv"
     )
 else:
     st.sidebar.write("No log file yet.")
