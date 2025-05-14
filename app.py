@@ -67,19 +67,6 @@ db_config = {
 }
 
 
-scope = ["https://spreadsheets.google.com/feeds",'https://www.googleapis.com/auth/spreadsheets',"https://www.googleapis.com/auth/drive.file","https://www.googleapis.com/auth/drive"]
-# Convert st.secrets to a JSON-style dict
-creds_dict = dict(st.secrets["gsheets"])
-# Convert to actual JSON string and parse it
-creds_json = json.loads(json.dumps(creds_dict))
-creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_json,scope)
-client = gspread.authorize(creds)
-sheet = client.open("Streamlit_Chatbot_Logs").sheet1  
-
-headers = ["session_id","question_id","timestamp","question","sql_query",
-"conversational_answer","rating", "comments"]
-
-
 st.set_page_config(initial_sidebar_state='collapsed')
 st.image(logo, width=150)
 st.title("Welcome to Aurex AI Chatbot")
@@ -102,7 +89,17 @@ else:
     metadata = st.session_state.metadata
     vector_store = st.session_state.vector_store
 
+scope = ["https://spreadsheets.google.com/feeds",'https://www.googleapis.com/auth/spreadsheets',"https://www.googleapis.com/auth/drive.file","https://www.googleapis.com/auth/drive"]
+# Convert st.secrets to a JSON-style dict
+creds_dict = dict(st.secrets["gsheets"])
+# Convert to actual JSON string and parse it
+creds_json = json.loads(json.dumps(creds_dict))
+creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_json,scope)
+client = gspread.authorize(creds)
+sheet = client.open("Streamlit_Chatbot_Logs").sheet1  
 
+headers = ["session_id","question_id","timestamp","question","sql_query",
+"conversational_answer","rating", "comments"]
 
 # Chart file hash (not used directly here)
 def checkfilechange(file_path):
