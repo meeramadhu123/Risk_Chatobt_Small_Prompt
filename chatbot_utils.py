@@ -165,7 +165,7 @@ def create_vector_db_from_metadata(metadata):
     model_path=r"all-MiniLM-L6-v2"
     #model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
     #model.save(model_path)
-    embeddings = HuggingFaceEmbeddings(model_name = model_path,model_kwargs={'device': 'cpu'})
+    embeddings = HuggingFaceEmbeddings(model_name = model_path)
     vector_store = FAISS.from_documents(documents, embeddings)
     return vector_store
 
