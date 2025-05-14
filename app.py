@@ -108,7 +108,7 @@ def log_csv(entry):
         writer.writerow(entry)
 
 # Core processing, without UI
-def process_risk_query(llm, user_question,conn, metadata,vector_store):
+def process_risk_query(llm, user_question):
     conn, metadata = get_metadata_from_mysql(db_config, descriptions_file=descriptions_file)
     if conn is None or not metadata:
         return  "Sorry, I was not able to connect to Database", None, ""
@@ -202,7 +202,7 @@ else:
         st.session_state.risk_msgs.append({"role":"user","content":prompt})
         # Process the question
         #with st.spinner("Generating the answer..."):
-        conv, result, sql = process_risk_query(llm_audit, prompt,conn, metadata,vector_store)
+        conv, result, sql = process_risk_query(llm_audit, prompt)
         if conv is None:
             st.chat_message("assistant").write( "Sorry, I couldn't answer your question.")
             st.session_state.risk_msgs.append({"role":"assistant","content":"Sorry, I couldn't answer your question."})
