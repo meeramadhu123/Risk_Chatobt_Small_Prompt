@@ -90,6 +90,7 @@ if 'conn' not in st.session_state or 'vector_store' not in st.session_state:
     with st.spinner("🔍 Connecting to the Risk management database..."):
         # Establish the database connection and create the vector store
         conn, metadata = get_metadata_from_mysql(db_config, descriptions_file=descriptions_file)
+    with st.spinner("🔍 Loading vector DB ..."):   
         vector_store = create_vector_db_from_metadata(metadata)
         # Store them in session state
         st.session_state.conn = conn
