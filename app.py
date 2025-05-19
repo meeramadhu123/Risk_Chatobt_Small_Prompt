@@ -84,6 +84,37 @@ st.image(logo, width=150)
 st.title("Welcome to Aurex AI Chatbot")
 policy_flag = st.toggle("DocAI")
 
+# 2. Sidebar expander for intermediate steps
+with st.sidebar:
+    st.markdown("### ⚙️ Intermediate Steps")
+    steps_expander = st.expander("Show steps", expanded=False)
+    step_titles = [
+        "Top 10 Tables",
+        "Top 3 Tables via LLM",
+        "Reframed Question",
+        "Generated SQL",
+        "Debugged SQL",
+        "Query Result Sample",
+        "Initial Conversational Draft"
+    ]
+    placeholders = {title: steps_expander.container() for title in step_titles}
+
+
+class PrintRetrievalHandler(BaseCallbackHandler):
+        def __init__(self, container):
+            self.status = container.status("**Context Retrieval**")
+
+        def on_retriever_start(self, serialized: dict, query: str, **kwargs):
+            self.status.write(f"**Question:** {query}")
+            self.status.update(label=f"**Context Retrieval:** {query}")
+
+        def on_retriever_end(self, documents, **kwargs):
+            for idx, doc in enumerate(documents):
+                source = os.path.basename(doc.metadata["source"])
+                self.status.write(f"**Document {idx} from {source}**")
+                self.status.markdown(doc.page_content)
+            self.status.update(state="complete")
+
 
 
 # Chart file hash (not used directly here)
@@ -147,27 +178,43 @@ def process_risk_query(llm, user_question):
     with st.spinner("📊 Retrieving the metadata for most relevant tables..."):
         docs = retrieve_top_tables(vector_store, user_question, k=10)
         top_names = [d.metadata["table_name"] for d in docs]
+        placeholders["Top 10 Tables"].markdown("## Top 10 Tables after stage 1 retrieval")
+        placeholders["Top 10 Tables"].write(", ".join(top_names))
         example_df = pd.read_excel(examples_file)
         top3 = create_llm_table_retriever(llm, user_question, top_names, example_df)
+        placeholders["Top 3 Tables via LLM"].markdown("## Top 3 Tables after stage 2 retrieval")
+        placeholders["Top 3 Tables via LLM"].write(top3)
         filtered = [d for d in docs if d.metadata["table_name"] in top3]
 
     with st.spinner("📝 Reframing question based on metadata..."):
         reframed = question_reframer(filtered, user_question, llm)
+        placeholders["Reframed Question"].markdown("## Question Rephrasing Process")
+        placeholders["Reframed Question"].write(reframed)
 
     with st.spinner("🛠️ Generating SQL query..."):
         sql = generate_sql_query_for_retrieved_tables(filtered, reframed, example_df, llm)
-
+        placeholders["Generated SQL"].markdown("## SQL Query Generation Process")
+        placeholders["Generated SQL"].code(sql)
+        
     with st.spinner("🚀 Executing SQL query..."):
         result, error = execute_sql_query(conn, sql)
         if result is None or result.empty:
             with st.spinner("🧪 Debugging SQL query..."):
                 sql = debug_query(filtered, user_question, sql, llm, error)
                 result, error = execute_sql_query(conn, sql)
+                placeholders["Debugged SQL"].markdown("## SQL Query Debugging Process")
+                placeholders["Debugged SQL"].code(sql)
             if result is None or result.empty:
                 return "Sorry, I couldn't answer your question.", None, sql
+        placeholders["Query Result Sample"].markdown("## Tabular Result of SQL Query")        
+        #placeholders["Query Result Sample"].table(result)
+        placeholders["Query Result Sample"].dataframe(result, width=600, height=300)
+       
 
     with st.spinner("📈 Analyzing SQL query results..."):
         conv = analyze_sql_query(user_question, result.to_dict(orient='records'), llm)
+        placeholders["Initial Conversational Draft"].markdown("## Initial Answer before finetuning process")
+        placeholders["Initial Conversational Draft"].write(conv)
 
     with st.spinner("💬 Finetuning conversational answer..."):
         conv = finetune_conv_answer(user_question, conv, llm)
@@ -213,7 +260,8 @@ if policy_flag:
         st.chat_message("user").write(prompt)
         with st.spinner("Generating policy response..."):   
             handler = BaseCallbackHandler()
-            resp = qa_chain.run(prompt, callbacks=[handler])
+            retrieval_handler = PrintRetrievalHandler(st.container())
+            resp = qa_chain.run(prompt, callbacks=[handler, retrieval_handler])
         with st.chat_message("assistant"):
             st.write(resp)
 
@@ -281,16 +329,17 @@ else:
                 for k in ("last_prompt", "last_sql", "last_conv"):
                     st.session_state.pop(k, None)
 
-
-
-            with st.form("feedback_form"):
-                st.subheader("Rate this answer and leave optional comments")
             
-                # Star rating from 1–5
-                rating = st.feedback(options="stars",key="feedback_rating")
-                # Text feedaback
-                comment = st.text_input("Please provide comments for improvement (optional)",key="feedback_comment")
-                submit = st.form_submit_button("Submit Feedback", on_click=submit_feedback)
+            feedback_expander = st.expander("Give Feedback", expanded=False)
+            with feedback_expander:
+                with st.form("feedback_form"):
+                    st.subheader("Rate this answer and leave optional comments")
+                
+                    # Star rating from 1–5
+                    rating = st.feedback(options="stars",key="feedback_rating")
+                    # Text feedaback
+                    comment = st.text_input("Please provide comments for improvement (optional)",key="feedback_comment")
+                    submit = st.form_submit_button("Submit Feedback", on_click=submit_feedback)
 
             if submit == False:
                 entry = { "session_id":   str(st.session_state["session_id"]),
