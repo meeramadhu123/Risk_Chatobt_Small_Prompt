@@ -1,4 +1,5 @@
 import streamlit as st
+from streamlit.components.v1 import html
 import pandas as pd
 import os
 import tempfile
@@ -122,6 +123,7 @@ def checkfilechange(file_path):
     with open(file_path, "rb") as f:
         newhash = hashlib.md5(f.read()).hexdigest()
     return newhash
+
 
 # CSV logger
 def log_csv(entry):
@@ -296,8 +298,10 @@ else:
             st.session_state.risk_msgs.append({"role":"assistant","content":"Sorry, I couldn't answer your question."})
         else:
             # Assistant response
-            st.chat_message("assistant").write(conv)
-            #st.dataframe(result)
+            #st.chat_message("assistant").write(conv)
+            tab1, tab2 = st.tabs(["Conversational", "Tabular"])
+            tab1.chat_message("assistant").write(conv)
+            tab2.dataframe(result,width=600, height=300)
             st.session_state.risk_msgs.append({"role":"assistant","content":conv})
         
             # ---- Simplified Feedback ----           
