@@ -80,7 +80,7 @@ headers = ["session_id","question_id","timestamp","question","sql_query",
 "conversational_answer","rating", "comments"]
 
 
-st.set_page_config(initial_sidebar_state='collapsed')
+st.set_page_config(initial_sidebar_state='expanded')
 st.image(logo, width=150)
 st.title("Welcome to Aurex AI Chatbot")
 policy_flag = st.toggle("DocAI")
