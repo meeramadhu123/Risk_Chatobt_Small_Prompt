@@ -277,11 +277,9 @@ else:
         st.session_state.chat_history = []
     if 'risk_msgs' not in st.session_state:
         st.session_state.risk_msgs = []
-    llm_audit = ChatNVIDIA(
-        model="qwen/qwen2.5-coder-32b-instruct",
-        api_key= NVIDIA_API_KEY,
-        temperature=0, num_ctx=50000
-    )
+    #llm_audit = ChatNVIDIA(model="qwen/qwen2.5-coder-32b-instruct",api_key= NVIDIA_API_KEY,temperature=0, num_ctx=50000)
+    llm_audit = ChatNVIDIA(model="ibnzterrell/Meta-Llama-3.3-70B-Instruct-AWQ-INT4",base_url="http://54.161.46.7:8000/v1/",temperature=0,max_tokens=8000)
+    
     # Display chat history
     for msg in st.session_state.risk_msgs:
         st.chat_message(msg['role']).write(msg['content'])
