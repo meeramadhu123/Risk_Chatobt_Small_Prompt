@@ -210,7 +210,6 @@ def process_risk_query(llm, user_question):
                 return "Sorry, I couldn't answer your question.", None, sql
         placeholders["Query Result Sample"].markdown("## Tabular Result of SQL Query")        
         #placeholders["Query Result Sample"].table(result)
-        placeholders["Query Result Sample"].dataframe(result, width=600, height=300)
         try:
             placeholders["Query Result Sample"].dataframe(result, width=600, height=300)
         except ValueError as e:
