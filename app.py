@@ -211,7 +211,15 @@ def process_risk_query(llm, user_question):
         placeholders["Query Result Sample"].markdown("## Tabular Result of SQL Query")        
         #placeholders["Query Result Sample"].table(result)
         placeholders["Query Result Sample"].dataframe(result, width=600, height=300)
-       
+        try:
+            placeholders["Query Result Sample"].dataframe(result, width=600, height=300)
+        except ValueError as e:
+            # detect and drop duplicate columns
+            if "Duplicate column names found" in str(e):
+                result = result.loc[:, ~result.columns.duplicated()]
+                placeholders["Query Result Sample"].dataframe(result, width=600, height=300)
+            else:
+                return "Sorry, I couldn't answer your question.", None, sql
 
     with st.spinner("📈 Analyzing SQL query results..."):
         conv = analyze_sql_query(user_question, result.to_dict(orient='records'), llm)
