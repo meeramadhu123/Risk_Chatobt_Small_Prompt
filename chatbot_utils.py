@@ -259,37 +259,30 @@ def question_reframer(selected_docs,user_question,llm):
         selected_metadata_str += doc.page_content + "\n\n"
      
     # Function to reformulate questions using llm
-    question_prompt = PromptTemplate(template="""You are a data analysis assistant tasked with reformulating a user's question for later SQL query generation. Your goal is to produce a clear, unambiguous question that:
-    - Accurately reflects the user's intent.
-    - Uses the exact table names and column names as provided in the metadata.
-    - Specifies the correct column-to-table relationships without hallucinating.
-    - Clearly outlines any necessary joins, filtering, grouping, or ordering, using the correct table aliases.
+    question_prompt = PromptTemplate(template="""You are a data‑analysis assistant that reformulates a natural‑language question into a precise, SQL‑ready technical question
+    using only the supplied metadata below:
+    {selected_metadata}.  
     
-    Below is the detailed metadata for the selected tables:
-    {selected_metadata}
+    Requirements:
+    - Understand and preserve user intent.
+    - Use exact table/column names and aliases.
+    - Use all and only relevant and available columns and data, dont use anything extra.
+    - Specify all joins, filters, groupings, orderings.
+    - No hallucinations—rely solely on selected_metadata.
+    - Self‑check: list each table and its columns you reference.
     
-    Please follow these instructions precisely:
-    1. **Understand the User's Intent:** Analyze the user's question carefully to identify what data is needed and how it should be processed.
-    2. **Eliminate Ambiguity:** Remove any vague or generic terms. Rephrase the question to precisely state the required data operation.
-    3. **Use Exact Names:** Replace any generic terms with the exact column names and table names from the metadata. Do not invent any names.
-    4. **Ensure Accurate Mapping:** For every column mentioned, clearly indicate the corresponding table (using correct table aliases) and specify join conditions if multiple tables are needed.
-    5. **Include All Necessary Elements:** Ensure that all relevant tables and columns are mentioned so that a correct SQL query can be constructed in the next stage.
-    6. **Avoid Hallucination:** Rely solely on the provided metadata without adding extra or assumed information.
-    7. **Self-Verification:** Before finalizing the reformulated question, list the available columns for each table (from the metadata) and cross-check that each column used in your answer is present in the correct table.
+    Output format:
+    1. **Reasoning:** mapping of all relevant/required and available columns→tables.
+    2. **Reformulated Question:** the concise, unambiguous question rephrased accurately.
     
-    Now, based on the metadata above and the user's question below, generate only the reformulated question:
-    Example Template for Reframed Question: 
-          Question: "What is maximum sales in 2020?" 
-          Reframed Question:"**Formulation Reasoning**:
-                            `Table_A`: `sales`,...
-                            `Table_B`: `year`,...
-                             **Formulation**: Show maximum value of sum of `sales` from `Table_A` where `year` from `Table_B` is '2020'."
-
+    Example: 
+    - Question: “What were the top three best‑selling products in the Northeast in Q1?”  
+    - Reformulated Question:
+      **Reasoning:** : `sales` (`product_id`,`region`,`quarter`,`amount`)  
+      **Reformulated Question:**: Show the top 3 `product_id` by sum(`amount`) from `sales` where `region`='Northeast' and `quarter`='Q1'.
     
     Question: {question}
-    Reformulated Question:
-
-        """,
+    Reformulated Question:""",
         input_variables=["selected_metadata", "question"])
     
     llm_chain = LLMChain(prompt=question_prompt, llm=llm)
@@ -370,10 +363,8 @@ def generate_sql_query_for_retrieved_tables(selected_docs, user_question, exampl
         7. **Ensure Correct Joins** –  
            - Use appropriate **INNER JOIN, LEFT JOIN, or RIGHT JOIN** when multiple tables are involved.  
            - Always specify the **correct primary and foreign key relationships** from the metadata. 
-        8. **Very Important**- In query use the tablename where all informations/columns relevant ot user question is available, in case it is not available, please join with other tablename where this information is available.
-        9. **Fuzzy matching **-Please use LIKE % incase of fuzzy matching with string for filtering purpose when there is a doubt about actual value/condition. Please prefer LIKE instead of '=' wherever applicable in SQL query.
-        10. **Column name**- Show (SELECT) all the required column names/counts/aggregates(sum,max,min,avg etc.) from required table/tables to answer the question correctly.
-        11. Please Replace risk_type column with risk_category1 in SQL query if it is there.
+        8. **Fuzzy matching **-Please use LIKE % incase of fuzzy matching with string for filtering purpose when there is a doubt about actual value/condition. Please prefer LIKE instead of '=' wherever applicable in SQL query.
+        9. Please Replace risk_type column with risk_category1 in SQL query if it is there.
         ## User's Question: {question}  
         ## SQL Query:  
         """,input_variables=["selected_metadata","Question_SQL_Queries_Examples", "question"])
