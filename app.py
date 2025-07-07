@@ -9,7 +9,7 @@ from PIL import Image
 from datetime import datetime
 import uuid
 import csv
-
+import time
 # Policy module imports
 from langchain.chat_models import ChatOpenAI
 from langchain.document_loaders import PyPDFLoader
@@ -292,12 +292,16 @@ else:
         st.chat_message(msg['role']).write(msg['content'])
     # User input at bottom
     if prompt := st.chat_input(placeholder="Ask a question about the Risk Management module"):
+        start_time=time.time()
         # User message
+    
         st.chat_message("user").write(prompt)
         st.session_state.risk_msgs.append({"role":"user","content":prompt})
         # Process the question
         #with st.spinner("Generating the answer..."):
         conv, result, sql = process_risk_query(llm_audit, prompt)
+       
+        
         if conv is None:
             st.chat_message("assistant").write( "Sorry, I couldn't answer your question.")
             st.session_state.risk_msgs.append({"role":"assistant","content":"Sorry, I couldn't answer your question."})
@@ -308,6 +312,12 @@ else:
             tab1.chat_message("assistant").write(conv)
             tab2.dataframe(result,width=600, height=300)
             st.session_state.risk_msgs.append({"role":"assistant","content":conv})
+
+        #to see time duration
+        end_time=time.time()
+        duration=end_time-start_time
+        st.write("response_time",duration)
+          
         
             # ---- Simplified Feedback ----           
             # 1. Store the last QA in session_state so it's accessible inside the form
