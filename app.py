@@ -319,57 +319,57 @@ else:
         st.write("response_time",duration)
           
         
-            # ---- Simplified Feedback ----           
-            # 1. Store the last QA in session_state so it's accessible inside the form
-            st.session_state["last_prompt"] = prompt
-            st.session_state["last_sql"]    = sql
-            st.session_state["last_conv"]   = conv
-            st.session_state["session_id"] = st.session_state.session_id
-            st.session_state["question_id"] =  uuid.uuid4()
-            st.session_state["timestamp"] = datetime.now().isoformat()
+        # ---- Simplified Feedback ----           
+        # 1. Store the last QA in session_state so it's accessible inside the form
+        st.session_state["last_prompt"] = prompt
+        st.session_state["last_sql"]    = sql
+        st.session_state["last_conv"]   = conv
+        st.session_state["session_id"] = st.session_state.session_id
+        st.session_state["question_id"] =  uuid.uuid4()
+        st.session_state["timestamp"] = datetime.now().isoformat()
 
-            # Callback to handle feedback submission
-            def submit_feedback():
-                entry = {
-                    "session_id":   str(st.session_state["session_id"]),
-                    "question_id":  str(st.session_state["question_id"]),
-                    "timestamp":  str(st.session_state["timestamp"]),
-                    "question": st.session_state.last_prompt,
-                    "sql_query": "SQL query: "+ st.session_state.last_sql,
-                    "conversational_answer": "Ans: "+ st.session_state.last_conv,
-                    "rating": (1+st.session_state.feedback_rating) if st.session_state.feedback_rating else 0,
-                    "comments": st.session_state.feedback_comment
-                }
-                if st.session_state.feedback_rating or st.session_state.feedback_comment:
-                    log_to_google_sheets(entry)
-                    st.success("Feedback recorded. Thank you!")	
-            
-                # Clear stored Q&A (optional)
-                for k in ("last_prompt", "last_sql", "last_conv"):
-                    st.session_state.pop(k, None)
-
-            
-            feedback_expander = st.expander("Give Feedback", expanded=False)
-            with feedback_expander:
-                with st.form("feedback_form"):
-                    st.subheader("Rate this answer and leave optional comments")
-                
-                    # Star rating from 1–5
-                    rating = st.feedback(options="stars",key="feedback_rating")
-                    # Text feedaback
-                    comment = st.text_input("Please provide comments for improvement (optional)",key="feedback_comment")
-                    submit = st.form_submit_button("Submit Feedback", on_click=submit_feedback)
-
-            if submit == False:
-                entry = { "session_id":   str(st.session_state["session_id"]),
-                          "question_id":  str(st.session_state["question_id"]),
-                          "timestamp":  str(st.session_state["timestamp"]),
-                           "question":  prompt,
-                           "sql_query": "SQL query: "+ sql,
-                           "conversational_answer": "Ans: "+ conv,
-                        }
+        # Callback to handle feedback submission
+        def submit_feedback():
+            entry = {
+                "session_id":   str(st.session_state["session_id"]),
+                "question_id":  str(st.session_state["question_id"]),
+                "timestamp":  str(st.session_state["timestamp"]),
+                "question": st.session_state.last_prompt,
+                "sql_query": "SQL query: "+ st.session_state.last_sql,
+                "conversational_answer": "Ans: "+ st.session_state.last_conv,
+                "rating": (1+st.session_state.feedback_rating) if st.session_state.feedback_rating else 0,
+                "comments": st.session_state.feedback_comment
+            }
+            if st.session_state.feedback_rating or st.session_state.feedback_comment:
                 log_to_google_sheets(entry)
-   
+                st.success("Feedback recorded. Thank you!")	
+        
+            # Clear stored Q&A (optional)
+            for k in ("last_prompt", "last_sql", "last_conv"):
+                st.session_state.pop(k, None)
+
+        
+        feedback_expander = st.expander("Give Feedback", expanded=False)
+        with feedback_expander:
+            with st.form("feedback_form"):
+                st.subheader("Rate this answer and leave optional comments")
+            
+                # Star rating from 1–5
+                rating = st.feedback(options="stars",key="feedback_rating")
+                # Text feedaback
+                comment = st.text_input("Please provide comments for improvement (optional)",key="feedback_comment")
+                submit = st.form_submit_button("Submit Feedback", on_click=submit_feedback)
+
+        if submit == False:
+            entry = { "session_id":   str(st.session_state["session_id"]),
+                      "question_id":  str(st.session_state["question_id"]),
+                      "timestamp":  str(st.session_state["timestamp"]),
+                       "question":  prompt,
+                       "sql_query": "SQL query: "+ sql,
+                       "conversational_answer": "Ans: "+ conv,
+                    }
+            log_to_google_sheets(entry)
+
           
 records = sheet.get_all_records()
 # Convert the records to a pandas DataFrame
